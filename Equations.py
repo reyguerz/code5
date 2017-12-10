@@ -11,14 +11,18 @@ Equations or expressions to be used as objective function and constraints
 #******* Objective Function/s *******#
 
 
-# NPC with no battery replacement
-def Compute_NPC(model):
-	return sum(model.SizeMicrosources[i]*model.CostMicrosources[i] for i in model.Microsources) + sum( ( model.SizeStorages[j]*model.CostStorages[j] ) for j in model.Storages)
+#*** NPC with no battery replacement
+#def Compute_NPC(model):
+#	return sum(model.SizeMicrosources[i]*model.CostMicrosources[i] for i in model.Microsources) + sum( ( model.SizeStorages[j]*model.CostStorages[j] ) for j in model.Storages)
 
-#NPC with battery replacement
+#*** NPC with battery replacement v1
 #def Compute_NPC(model):
 #	return sum(model.SizeMicrosources[i]*model.CostMicrosources[i] for i in model.Microsources) + sum( ( sum(model.StorageCostPerYear[j,t] * model.wStorageSizeCost[j,t] for t in model.TimeSteps) ) for j in model.Storages)
 
+
+#*** NPC with battery replacement v2, per year computation only instead of every time step
+def Compute_NPC(model):
+	return sum(model.SizeMicrosources[i]*model.CostMicrosources[i] for i in model.Microsources) + sum( ( sum(model.StorageCostPerYear[j,y] * model.wStorageSizeCost[j,y] for y in model.YearSteps) ) for j in model.Storages)
 
 
 #******* Energy Balance and Demand Requirements*******#
@@ -52,51 +56,58 @@ def Limit_StorageOut(model, TimeSteps):
 
 def Limit_StorageIn(model, TimeSteps):
 	return model.StorageIn[TimeSteps] <= model.BatCharge2CapRatio * model.SizeStorages[model.Storages[1]]
-	
+
 
 #* Battery Replacement Constraints
 
-def Limit_StorageSizeCost1(model, Storages, TimeSteps):
-	return model.wStorageSizeCost[Storages,TimeSteps] <= model.uTime2Replace[TimeSteps] * model.BigMaxBatSize
+def Limit_StorageSizeCost1(model, Storages, YearSteps):
+	return model.wStorageSizeCost[Storages,YearSteps] <= model.uTime2Replace[YearSteps] * model.BigMaxBatSize
 
-def Limit_StorageSizeCost2(model, Storages, TimeSteps):
-	return model.wStorageSizeCost[Storages,TimeSteps] <= model.SizeStorages[Storages]
+def Limit_StorageSizeCost2(model, Storages, YearSteps):
+	return model.wStorageSizeCost[Storages,YearSteps] <= model.SizeStorages[Storages]
 
-def Limit_StorageSizeCost3(model, Storages, TimeSteps):
-	return model.wStorageSizeCost[Storages,TimeSteps] >= model.BigMaxBatSize * (model.uTime2Replace[TimeSteps] - 1) + model.SizeStorages[Storages]
+def Limit_StorageSizeCost3(model, Storages, YearSteps):
+	return model.wStorageSizeCost[Storages,YearSteps] >= model.BigMaxBatSize * (model.uTime2Replace[YearSteps] - 1) + model.SizeStorages[Storages]
 
-def Define_uTime2Replace(model, TimeSteps):
-	if TimeSteps == 1:
-		return model.uTime2Replace[TimeSteps] == 1
-	if TimeSteps > 1:
-		return model.uTime2Replace[TimeSteps] == sum( model.uFlagBatMaxThroughput[r,TimeSteps] - model.uFlagBatMaxThroughput[r,TimeSteps - 1] for r in model.BatReplacements)
 
-def Define_SumStorageOut(model, TimeSteps):
-	return model.SumStorageOut[TimeSteps] == sum( model.StorageOut[t+1] for t in range(TimeSteps)) # TAKE NOTE OF THIS CODE. MAY CAUSE A BUG DEPENDING ON PROPER PYTHON/PYOMO SYNTAX
+def Define_uTime2Replace(model, YearSteps):
+	if YearSteps == 1:
+		return model.uTime2Replace[YearSteps] == 1
+	if YearSteps > 1:
+		return model.uTime2Replace[YearSteps] == sum( model.uFlagBatMaxThroughput[r,YearSteps] - model.uFlagBatMaxThroughput[r,YearSteps - 1] for r in model.BatReplacements)
+
+
+def Define_SumStorageOut(model, YearSteps):
+	return model.SumStorageOut[YearSteps] == sum( model.StorageOut[t+1] for t in range(YearSteps)) # TAKE NOTE OF THIS CODE. MAY CAUSE A BUG DEPENDING ON PROPER PYTHON/PYOMO SYNTAX
 
 def Define_BatMaxThroughput(model, Storages):
 	return model.BatMaxThroughput[Storages] == model.SizeStorages[model.Storages[1]] * model. BatCap2MaxThroughput
 
-def Limit_SumStorageOut1(model, Storages, BatReplacements, TimeSteps):
-	return model.SumStorageOut[TimeSteps] - model.wSumStorageOut[BatReplacements,TimeSteps] <= model.BatMaxThroughputMultiplier[BatReplacements] * model.BatMaxThroughput[Storages]
 
-def Limit_SumStorageOut2(model, BatReplacements, TimeSteps):
-	return model.wSumStorageOut[BatReplacements,TimeSteps] <= model.SumStorageOut[TimeSteps]
+def Limit_BatMaxThroughput1(model, BatReplacements, YearSteps):
+	return model.SumStorageOut[YearSteps] >= model.BatMaxThroughputMultiplier[BatReplacements] * model.wBatMaxThroughput[BatReplacements,YearSteps]
 
-def Limit_SumStorageOut3(model, BatReplacements, TimeSteps):
-	return model.wSumStorageOut[BatReplacements,TimeSteps] <= model.BigMaxBatThroughput * model.uFlagBatMaxThroughput[BatReplacements,TimeSteps]
+def Limit_BatMaxThroughput2(model, Storages, BatReplacements, YearSteps):
+	return model.wBatMaxThroughput[BatReplacements,YearSteps] <= model.BatMaxThroughput[Storages]
 
-def Limit_SumStorageOut4(model, BatReplacements, TimeSteps):
-	return model.wSumStorageOut[BatReplacements,TimeSteps] >= model.BigMaxBatThroughput * (model.uFlagBatMaxThroughput[BatReplacements,TimeSteps] - 1) + model.SumStorageOut[TimeSteps]
+def Limit_BatMaxThroughput3(model, BatReplacements, YearSteps):
+	return model.wBatMaxThroughput[BatReplacements,YearSteps] <= model.BigMaxBatThroughput * model.uFlagBatMaxThroughput[BatReplacements,YearSteps]
 
-def Limit_BatMaxThroughput1(model, BatReplacements, TimeSteps):
-	return model.SumStorageOut[TimeSteps] >= model.BatMaxThroughputMultiplier[BatReplacements] * model.wBatMaxThroughput[BatReplacements,TimeSteps]
+def Limit_BatMaxThroughput4(model, Storages, BatReplacements, YearSteps):
+	return model.wBatMaxThroughput[BatReplacements,YearSteps] >= model.BigMaxBatThroughput * (model.uFlagBatMaxThroughput[BatReplacements,YearSteps] - 1) + model.BatMaxThroughput[Storages]
 
-def Limit_BatMaxThroughput2(model, Storages, BatReplacements, TimeSteps):
-	return model.wBatMaxThroughput[BatReplacements,TimeSteps] <= model.BatMaxThroughput[Storages]
 
-def Limit_BatMaxThroughput3(model, BatReplacements, TimeSteps):
-	return model.wBatMaxThroughput[BatReplacements,TimeSteps] <= model.BigMaxBatThroughput * model.uFlagBatMaxThroughput[BatReplacements,TimeSteps]
 
-def Limit_BatMaxThroughput4(model, Storages, BatReplacements, TimeSteps):
-	return model.wBatMaxThroughput[BatReplacements,TimeSteps] >= model.BigMaxBatThroughput * (model.uFlagBatMaxThroughput[BatReplacements,TimeSteps] - 1) + model.BatMaxThroughput[Storages]
+def Limit_SumStorageOut1(model, Storages, BatReplacements, YearSteps):
+	return model.SumStorageOut[YearSteps] - model.wSumStorageOut[BatReplacements,YearSteps] <= model.BatMaxThroughputMultiplier[BatReplacements] * model.BatMaxThroughput[Storages]
+
+def Limit_SumStorageOut2(model, BatReplacements, YearSteps):
+	return model.wSumStorageOut[BatReplacements,YearSteps] <= model.SumStorageOut[YearSteps]
+
+def Limit_SumStorageOut3(model, BatReplacements, YearSteps):
+	return model.wSumStorageOut[BatReplacements,YearSteps] <= model.BigMaxBatThroughput * model.uFlagBatMaxThroughput[BatReplacements,YearSteps]
+
+def Limit_SumStorageOut4(model, BatReplacements, YearSteps):
+	return model.wSumStorageOut[BatReplacements,YearSteps] >= model.BigMaxBatThroughput * (model.uFlagBatMaxThroughput[BatReplacements,YearSteps] - 1) + model.SumStorageOut[YearSteps]
+
+
