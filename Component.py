@@ -3,21 +3,30 @@ __author__ = 'Rey Guerrero'
 #*****  Model of Components
 
 #**
+import math
+
 import VarList
 import WindTBWvsP
 import random
+import PVDeg
+import WindTBDeg
 
-def Solar_PV_Out(Irradiance, Temperature): # computation for temperature is in terms of Celsius
+PVDegLUT = PVDeg.LUT				#degradation look up table for solar pv panels
+WindTBDegLUT = WindTBDeg.LUT 		# degradation look up table for wind turbine
+
+def Solar_PV_Out(Irradiance, Temperature, TimeIndex): # computation for temperature is in terms of Celsius
 	
 	NOCT = VarList.NOCT
 	PVEff = VarList.PVEff
 	PVatSTC = VarList.PVatSTC
 	PVTempCoeff = VarList.PVTempCoeff
-
+	
+	indextime = math.floor(TimeIndex / 24)		# divide by 24, assuming TimeIndex is per hour and degradation values change every day
+	
 	PVTemp = (Temperature - 273) + (NOCT - 20) * (Irradiance/800)
-	powerout = PVEff *(Irradiance/1000)*PVatSTC*((PVTemp - 25)*PVTempCoeff + 1 )
+	powerout =  PVEff *(Irradiance/1000)*PVatSTC*((PVTemp - 25)*PVTempCoeff + 1 )
 
-	return powerout
+	return powerout * PVDegLUT[indextime]
 
 
 #*** Search Method
@@ -58,13 +67,14 @@ def SearchLUTBisectionMethod(LUTContent, LUT):
 	return SearchResult
 
 
-def Wind_TB_Out(WindSpeed):
+def Wind_TB_Out(WindSpeed, TimeIndex):
 
 	WindTBMaxWindSpeed = WindTBWvsP.MaxWindSpeed
 	WindTBLUTW = WindTBWvsP.LUTWindSpeed
 	WindTBLUTP = WindTBWvsP.LUTPout
+	WindTBMaxPower = WindTBWvsP.WindTBPowerRating
 
-
+	indextime = math.floor(TimeIndex / 24)		# divide by 24, assuming TimeIndex is per hour and degradation values change every day
 
 	if (WindSpeed < WindTBMaxWindSpeed):
 
@@ -84,4 +94,4 @@ def Wind_TB_Out(WindSpeed):
 	else:
 		powerout = WindTBMaxPower 
 
-	return powerout
+	return powerout * WindTBDegLUT[indextime]

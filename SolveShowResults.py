@@ -18,7 +18,9 @@ def Solve_Show_Results(model):
  		model.SizeMicrosources.display()
  		model.SizeStorages.display()
 	
-	opt = SolverFactory("glpk")
+	#opt = SolverFactory("glpk")
+	opt = SolverFactory("cbc")
+
 	results = opt.solve(model)
 	results.write()
 	print("\nDisplaying Solution\n" + '-'*60)

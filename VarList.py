@@ -58,6 +58,8 @@ BATminSOC = 0.2			# minimum battery SOC during discharge
 minBatSOH = 0.8			# criteria when to change the battery
 BatChEff = 0.90			# charging efficiency
 BatDisChEff = 0.90		# discharging efficiency
+BatInitialSOC = 0.50	# initial charge of the battery
+
 #Battery model coefficients
 TempRef = 298 		
 kTemp = 0.0693
@@ -82,7 +84,7 @@ PVatSTC = 1000			# unit
 PVTempCoeff = -0.005		
 NOCT = 45				# Celsius
 PVEff = 0.90			#BOS efficiency loss
-PVAnnualDeg = -0.008 		# yearly degradation, linear degradation
+PVAnnualDeg = -0.008 	# yearly degradation, linear degradation
 
 
 # Wind TB Model and Parameters
