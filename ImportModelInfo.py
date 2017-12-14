@@ -109,7 +109,7 @@ def Import_Model_Info(model):
 	'''
 
 	# Storage Cost per Year for every year considering interest rate
-	NumOfYears = 1
+	NumOfYears = 10
 	for i in range(len(ListStorages)):
 		for j in range(NumOfYears):
 			CostPerYear = StoragePresentCost / ( ( 1 + StorageInterestRate)**(j) )		# per year computation of NPC, assuming yearly timesteps
@@ -124,14 +124,15 @@ def Import_Model_Info(model):
 
 	BigMaxBatSize = 100000000					# max battery capacity. used in LP constraints to linearize nonlinear function/term
 
-	MaxBatReplacements = 20						# max number of times that the battery is replaced
+	MaxBatReplacements = 5						# max number of times that the battery is replaced
 	ListBatReplacements = [i+1 for i in range(MaxBatReplacements)]
 	DictBatReplacements = {}
 	for i in range(MaxBatReplacements):
 			dictdummy = {ListBatReplacements[i] : i+1}
 			DictBatReplacements.update(dictdummy)
 
-	ValBatCap2MaxThroughput = 3960				# method from [2017 Bordin], values from [2017 Alsaidan] for Li-Ion Batteries
+	#ValBatCap2MaxThroughput = 3960				# method from [2017 Bordin], values from [2017 Alsaidan] for Li-Ion Batteries = 3960
+	ValBatCap2MaxThroughput = 1000				# value = 1000 is for test purposes.
 	ValBigMaxBatThroughput = 1000000000000		# maximum through put. used in LP constraints to linearize nonlinear function/term
 
 	#******** PYOMO CODE PROPER *********#
@@ -173,20 +174,21 @@ def Import_Model_Info(model):
 	model.BigMaxBatThroughput = Param(initialize = ValBigMaxBatThroughput)
 
 	#******* VARIABLES ********# # define the variable/s to solve
-	model.SizeMicrosources = Var(model.Microsources, domain = NonNegativeIntegers)
-	model.SizeStorages = Var(model.Storages, domain = NonNegativeIntegers)	
+	#** NOTE: Bounds can be declared properly and orderly in the separate module/file
+	model.SizeMicrosources = Var(model.Microsources, domain = NonNegativeIntegers, bounds = (0,10000)) #* 10GW max
+	model.SizeStorages = Var(model.Storages, domain = NonNegativeIntegers, bounds = (0,100000000)) #* 100MWh capacity	
 
 	model.LoadNotServed = Var(model.TimeSteps, domain = NonNegativeReals)
 	
 	#*** Battery Related Variables
-	model.StorageOut = Var(model.TimeSteps, domain = NonNegativeReals)
-	model.StorageIn = Var(model.TimeSteps, domain = NonNegativeReals)
-	model.BatCharge = Var(model.TimeSteps, domain = NonNegativeReals)
+	model.StorageOut = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
+	model.StorageIn = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
+	model.BatCharge = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
 	
 	
 	# * Battery Replacement Variables
 	model.wStorageSizeCost = Var(model.Storages,model.YearSteps, domain = NonNegativeReals)
-	model.uTime2Replace = Var(model.YearSteps, domain = Binary)
+	model.uTime2Replace = Var(model.YearSteps, domain = NonNegativeReals, bounds = (0,1)) # as defined in the constraints, the value will always be 0 or 1
 	model.uFlagBatMaxThroughput = Var(model.BatReplacements, model.YearSteps, domain = Binary)
 	model.SumStorageOut = Var(model.YearSteps, domain = NonNegativeReals)
 	model.BatMaxThroughput = Var(model.Storages, domain = NonNegativeReals)

@@ -78,10 +78,10 @@ def Define_uTime2Replace(model, YearSteps):
 
 
 def Define_SumStorageOut(model, YearSteps):
-	return model.SumStorageOut[YearSteps] == sum( model.StorageOut[t+1] for t in range(YearSteps)) # TAKE NOTE OF THIS CODE. MAY CAUSE A BUG DEPENDING ON PROPER PYTHON/PYOMO SYNTAX
+	return model.SumStorageOut[YearSteps] == YearSteps * sum( model.StorageOut[t] for t in model.TimeSteps) # TAKE NOTE OF THIS CODE. MAY CAUSE A BUG DEPENDING ON PROPER PYTHON/PYOMO SYNTAX
 
 def Define_BatMaxThroughput(model, Storages):
-	return model.BatMaxThroughput[Storages] == model.SizeStorages[model.Storages[1]] * model. BatCap2MaxThroughput
+	return model.BatMaxThroughput[Storages] == model.SizeStorages[model.Storages[1]] * model.BatCap2MaxThroughput
 
 
 def Limit_BatMaxThroughput1(model, BatReplacements, YearSteps):
