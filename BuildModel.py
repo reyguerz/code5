@@ -23,13 +23,21 @@ def Build_Model(model):
 
 	
 	#*** Battery-Related Constraints
-	model.ConstraintBatCharge = Constraint(model.TimeSteps, rule = Equations.Update_BatCharge)
-	model.ConstraintBatChargeMin = Constraint(model.TimeSteps, rule = Equations.Limit_BatChargeMin)
-	model.ConstraintBatChargeMax = Constraint(model.TimeSteps, rule = Equations.Limit_BatChargeMax)
-	model.ConstraintMaxStorageOut = Constraint(model.TimeSteps, rule = Equations.Limit_StorageOut)
-	model.ConstraintMaxStorageIn = Constraint(model.TimeSteps, rule = Equations.Limit_StorageIn)
+	model.ConstraintBatCharge = Constraint(model.Storages, model.TimeSteps, rule = Equations.Update_BatCharge)
+	model.ConstraintBatChargeMin = Constraint(model.Storages, model.TimeSteps, rule = Equations.Limit_BatChargeMin)
+	model.ConstraintBatChargeMax = Constraint(model.Storages, model.TimeSteps, rule = Equations.Limit_BatChargeMax)
+	model.ConstraintMaxStorageOut = Constraint(model.Storages, model.TimeSteps, rule = Equations.Limit_StorageOut)
+	model.ConstraintMaxStorageIn = Constraint(model.Storages, model.TimeSteps, rule = Equations.Limit_StorageIn)
 	
 	#* Battery Replacement Constraints
+	model.ConstraintSumSOYear1 = Constraint(model.Storages, rule = Equations.Limit_SumSOYear1)
+	model.ConstraintSumSOYear2Horizon = Constraint(model.Storages, model.YearStepsR, rule = Equations.Limit_SumSOYear2Horizon)
+	model.ConstraintStorageReplacement1 = Constraint(model.Storages, model.YearStepsR, rule = Equations.Limit_StorageReplacement1)
+	model.ConstraintStorageReplacement2 = Constraint(model.Storages, model.YearStepsR, rule = Equations.Limit_StorageReplacement2)
+	model.ConstraintStorageReplacement3 = Constraint(model.Storages, model.YearStepsR, rule = Equations.Limit_StorageReplacement3)
+
+
+	'''
 	model.ConstraintWStorageSizeCost1 = Constraint(model.Storages, model.YearSteps, rule = Equations.Limit_StorageSizeCost1)
 	model.ConstraintWStorageSizeCost2 = Constraint(model.Storages, model.YearSteps, rule = Equations.Limit_StorageSizeCost2)
 	model.ConstraintWStorageSizeCost3 = Constraint(model.Storages, model.YearSteps, rule = Equations.Limit_StorageSizeCost3)
@@ -44,7 +52,7 @@ def Build_Model(model):
 	model.ConstraintWSumStorageOut2 = Constraint(model.BatReplacements, model.YearSteps, rule = Equations.Limit_SumStorageOut2)
 	model.ConstraintWSumStorageOut3 = Constraint(model.BatReplacements, model.YearSteps, rule = Equations.Limit_SumStorageOut3)
 	model.ConstraintWSumStorageOut4 = Constraint(model.BatReplacements, model.YearSteps, rule = Equations.Limit_SumStorageOut4)
-
+	'''
 	
 
 

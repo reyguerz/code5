@@ -90,13 +90,14 @@ def Import_Model_Info(model):
 	ValBatCharge2CapRatio = 5/13				# initial data. from Powerwall specs of 5kW continuous output
 	ValBatDischarge2CapRatio = 5/13
 
-	DictCostStorages = { 'bat' : 0.470 } # accessed online 2 Dec 2017, Powerwall price, wikipedia
+	
 
-	DictStorageCostPerYear = {}
+	DictStorageCostPerYearR = {}
 	StorageInterestRate = 0.0375				# reference [13]
-	StoragePresentCost = 0.470					# accessed online 2 Dec 2017, Powerwall price, wikipedia. USD / Wh
+	StoragePresentCost = 0.830					# accessed online 2 Dec 2017, Powerwall price, wikipedia. USD / Wh = 0.470
 
-
+	DictCostStorages = { 'bat' : StoragePresentCost } # accessed online 2 Dec 2017, Powerwall price, wikipedia
+	
 	'''
 	# Storage Cost per Year for every timestep considering interest rate
 	for i in range(len(ListStorages)):
@@ -110,29 +111,33 @@ def Import_Model_Info(model):
 
 	# Storage Cost per Year for every year considering interest rate
 	NumOfYears = 10
+	ListYearStepsR = [ i+1 for i in range(NumOfYears-1)]	# number of years + 1. Meant for battery replacement after the first year.
+	print(ListYearStepsR)
 	for i in range(len(ListStorages)):
-		for j in range(NumOfYears):
-			CostPerYear = StoragePresentCost / ( ( 1 + StorageInterestRate)**(j) )		# per year computation of NPC, assuming yearly timesteps
-			dictdummy = { (ListStorages[i],ListTimeSteps[j]) : CostPerYear }
-			DictStorageCostPerYear.update(dictdummy)
+		for j in range(NumOfYears-1):
+			CostPerYear = StoragePresentCost / ( ( 1 + StorageInterestRate)**(j+1) )		# per year computation of NPC, assuming yearly timesteps. except on the first year which has a differenet/separate variable
+			dictdummy = { (ListStorages[i],ListYearStepsR[j]) : CostPerYear }
+			DictStorageCostPerYearR.update(dictdummy)
 
 			outfile.write(str(ListStorages[i]) + ',' + str(j)+','+str(CostPerYear)+',\n') # for code testing purposes only
-	
+		
 
-	ListYearSteps = [ i+1 for i in range(NumOfYears)]
+	ValBigMaxBatSize = 100000000					# max battery capacity. used in LP constraints to linearize nonlinear function/term
 
-
-	BigMaxBatSize = 100000000					# max battery capacity. used in LP constraints to linearize nonlinear function/term
-
+	'''
 	MaxBatReplacements = 5						# max number of times that the battery is replaced
 	ListBatReplacements = [i+1 for i in range(MaxBatReplacements)]
 	DictBatReplacements = {}
 	for i in range(MaxBatReplacements):
 			dictdummy = {ListBatReplacements[i] : i+1}
 			DictBatReplacements.update(dictdummy)
+	'''
 
 	#ValBatCap2MaxThroughput = 3960				# method from [2017 Bordin], values from [2017 Alsaidan] for Li-Ion Batteries = 3960
-	ValBatCap2MaxThroughput = 1000				# value = 1000 is for test purposes.
+	#ValValBatCap2MaxThroughput here are test values
+	#ValBatCap2MaxThroughput = 5				
+	ValBatCap2MaxThroughput = 840
+
 	ValBigMaxBatThroughput = 1000000000000		# maximum through put. used in LP constraints to linearize nonlinear function/term
 
 	#******** PYOMO CODE PROPER *********#
@@ -143,8 +148,8 @@ def Import_Model_Info(model):
 	model.Microsources = Set(initialize = ListMicrosources, ordered = True)
 	model.Storages = Set(initialize = ListStorages, ordered = True )
 	model.TimeSteps = Set(initialize = ListTimeSteps, ordered = True )
-	model.YearSteps = Set(initialize = ListYearSteps, ordered = True)
-	model.BatReplacements = Set(initialize = ListBatReplacements, ordered = True)
+	model.YearStepsR = Set(initialize = ListYearStepsR, ordered = True)
+	#model.BatReplacements = Set(initialize = ListBatReplacements, ordered = True)
 
 
 	#******* PARAMETERS ********#	# define parameters or the given values of the problem
@@ -158,8 +163,8 @@ def Import_Model_Info(model):
 	
 	#*** Battery Specs and Parameters
 	model.CostStorages = Param(model.Storages, initialize = DictCostStorages)
-	model.StorageCostPerYear = Param(model.Storages, model.YearSteps, initialize = DictStorageCostPerYear)
-	model.BigMaxBatSize = Param(initialize = BigMaxBatSize)
+	model.StorageCostPerYear = Param(model.Storages, model.YearStepsR, initialize = DictStorageCostPerYearR)
+	model.BigMaxBatSize = Param(initialize = ValBigMaxBatSize)
 
 	model.InitialSOC = Param(initialize = ValInitialSOC)
 	model.MinSOC = Param(initialize = ValMinSOC)
@@ -169,24 +174,29 @@ def Import_Model_Info(model):
 	model.BatCharge2CapRatio = Param(initialize = ValBatCharge2CapRatio)
 	model.BatDischarge2CapRatio = Param(initialize = ValBatDischarge2CapRatio)
 
-	model.BatMaxThroughputMultiplier = Param(model.BatReplacements, initialize = DictBatReplacements)
+	#model.BatMaxThroughputMultiplier = Param(model.BatReplacements, initialize = DictBatReplacements)
 	model.BatCap2MaxThroughput = Param (initialize = ValBatCap2MaxThroughput)
-	model.BigMaxBatThroughput = Param(initialize = ValBigMaxBatThroughput)
+
+	#model.BigMaxBatThroughput = Param(initialize = ValBigMaxBatThroughput)
 
 	#******* VARIABLES ********# # define the variable/s to solve
 	#** NOTE: Bounds can be declared properly and orderly in the separate module/file
 	model.SizeMicrosources = Var(model.Microsources, domain = NonNegativeIntegers, bounds = (0,10000)) #* 10GW max
 	model.SizeStorages = Var(model.Storages, domain = NonNegativeIntegers, bounds = (0,100000000)) #* 100MWh capacity	
-
 	model.LoadNotServed = Var(model.TimeSteps, domain = NonNegativeReals)
 	
 	#*** Battery Related Variables
-	model.StorageOut = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
-	model.StorageIn = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
-	model.BatCharge = Var(model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
+	model.StorageOut = Var(model.Storages, model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
+	model.StorageIn = Var(model.Storages, model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
+	model.BatCharge = Var(model.Storages, model.TimeSteps, domain = NonNegativeReals, bounds = (0,100000000)) #* 100MWh capacity
 	
 	
 	# * Battery Replacement Variables
+	model.SizeStoragesR = Var(model.Storages, model.YearStepsR, domain = NonNegativeIntegers, bounds = (0,100000000)) #* 100MWh capacity	
+	model.uTime2Replace = Var(model.Storages, model.YearStepsR, domain = NonNegativeIntegers, bounds = (0,1)) # as defined in the constraints, the value will always be 0 or 1
+	
+
+	'''
 	model.wStorageSizeCost = Var(model.Storages,model.YearSteps, domain = NonNegativeReals)
 	model.uTime2Replace = Var(model.YearSteps, domain = NonNegativeReals, bounds = (0,1)) # as defined in the constraints, the value will always be 0 or 1
 	model.uFlagBatMaxThroughput = Var(model.BatReplacements, model.YearSteps, domain = Binary)
@@ -194,4 +204,4 @@ def Import_Model_Info(model):
 	model.BatMaxThroughput = Var(model.Storages, domain = NonNegativeReals)
 	model.wSumStorageOut = Var(model.BatReplacements, model.YearSteps, domain = NonNegativeReals)
 	model.wBatMaxThroughput = Var(model.BatReplacements, model.YearSteps, domain = NonNegativeReals)
-	
+	'''
